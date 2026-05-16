@@ -64,58 +64,102 @@ ticket = safe_div(revenue, ventas)
 conv_meta_bold = safe_div(leads_bold, leads_meta)
 conv_bold_contactos = safe_div(contactos, leads_bold)
 conv_contacto_agenda = safe_div(agendamientos, contactos)
-conv_agenda_opp = safe_div(oportunidades, agendamientos)
-conv_opp_cierre = safe_div(en_cierre, oportunidades)
-conv_opp_venta = safe_div(ventas, oportunidades)
 
 ticket_ref = ticket if ticket else 15_500_000
 pipeline_potencial = oportunidades * ticket_ref
 pipeline_en_cierre = en_cierre * ticket_ref
 
+# =========================
+# CSS DARK MODE
+# =========================
 st.markdown("""
 <style>
 .stApp {
     background: linear-gradient(135deg, #020617 0%, #071426 55%, #0f172a 100%);
-    color: white;
+    color: white !important;
 }
+
 .block-container {
     padding-top: 2rem;
     padding-bottom: 2rem;
 }
-h1, h2, h3 {
-    color: #f8fafc;
+
+html, body, [class*="css"] {
+    color: white !important;
 }
+
+label, p, span, div {
+    color: white !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: white !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: white !important;
+}
+
+[data-testid="stMetricValue"] {
+    color: white !important;
+}
+
+[data-testid="stMetricDelta"] {
+    color: #38bdf8 !important;
+}
+
+[data-testid="stMarkdownContainer"] {
+    color: white !important;
+}
+
+[data-testid="stCaptionContainer"] {
+    color: #cbd5e1 !important;
+}
+
 .card {
-    background: rgba(15, 23, 42, 0.92);
-    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(148, 163, 184, 0.25);
     border-radius: 18px;
     padding: 22px;
     box-shadow: 0 8px 28px rgba(0,0,0,0.25);
     min-height: 125px;
 }
+
 .metric-title {
-    color: #94a3b8;
+    color: #ffffff !important;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
 }
+
 .metric-value {
-    color: #ffffff;
+    color: #ffffff !important;
     font-size: 30px;
     font-weight: 800;
     margin-top: 8px;
 }
+
 .metric-sub {
-    color: #38bdf8;
+    color: #38bdf8 !important;
     font-size: 13px;
     margin-top: 6px;
+}
+
+hr {
+    border-color: rgba(148, 163, 184, 0.25);
 }
 </style>
 """, unsafe_allow_html=True)
 
+# =========================
+# HEADER
+# =========================
 st.title("Evaluación de Campaña")
 st.markdown(f"### Campaña: **{campana}**")
 st.markdown("Análisis integral de desempeño comercial, funnel, revenue e insights.")
 
+# =========================
+# KPI CARDS
+# =========================
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 cards = [
@@ -140,6 +184,9 @@ for col, (title, value, sub) in zip([c1, c2, c3, c4, c5, c6], cards):
 
 st.markdown("")
 
+# =========================
+# FUNNEL / INDICADORES / REVENUE
+# =========================
 left, mid, right = st.columns([2.2, 1.2, 1.4])
 
 with left:
@@ -185,6 +232,11 @@ with left:
         margin=dict(l=10, r=10, t=20, b=10)
     )
 
+    fig.update_traces(
+        textfont=dict(color="white", size=14),
+        connector=dict(line=dict(color="rgba(255,255,255,0.5)"))
+    )
+
     st.plotly_chart(fig, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -212,7 +264,8 @@ with right:
         y=[inversion, revenue],
         text=[clp(inversion), clp(revenue)],
         textposition="outside",
-        marker_color=["#2563eb", "#22c55e"]
+        marker_color=["#2563eb", "#22c55e"],
+        textfont=dict(color="white", size=14)
     ))
 
     fig_bar.update_layout(
@@ -221,7 +274,9 @@ with right:
         plot_bgcolor="rgba(0,0,0,0)",
         font_color="white",
         margin=dict(l=10, r=10, t=20, b=10),
-        yaxis_title="CLP"
+        yaxis_title="CLP",
+        xaxis=dict(color="white"),
+        yaxis=dict(color="white", gridcolor="rgba(255,255,255,0.15)")
     )
 
     st.plotly_chart(fig_bar, use_container_width=True)
@@ -229,6 +284,9 @@ with right:
 
 st.markdown("")
 
+# =========================
+# SEGUNDA FILA
+# =========================
 col_a, col_b, col_c = st.columns([1.2, 1.4, 1.4])
 
 with col_a:
@@ -254,14 +312,18 @@ with col_a:
             en_cierre,
             ventas
         ],
-        hole=0.55
+        hole=0.55,
+        textfont=dict(color="white"),
+        marker=dict(line=dict(color="#020617", width=2))
     ))
 
     fig_donut.update_layout(
         height=330,
         paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         font_color="white",
-        margin=dict(l=10, r=10, t=10, b=10)
+        margin=dict(l=10, r=10, t=10, b=10),
+        legend=dict(font=dict(color="white"))
     )
 
     st.plotly_chart(fig_donut, use_container_width=True)
@@ -299,6 +361,9 @@ with col_c:
 
 st.markdown("")
 
+# =========================
+# INSIGHTS
+# =========================
 col_i, col_l = st.columns([1.5, 1])
 
 with col_i:
@@ -333,7 +398,8 @@ with col_l:
         orientation="h",
         text=motivos["Casos"],
         textposition="outside",
-        marker_color=["#ef4444", "#f59e0b", "#38bdf8"]
+        marker_color=["#ef4444", "#f59e0b", "#38bdf8"],
+        textfont=dict(color="white", size=14)
     ))
 
     fig_loss.update_layout(
@@ -341,7 +407,9 @@ with col_l:
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font_color="white",
-        margin=dict(l=10, r=10, t=20, b=10)
+        margin=dict(l=10, r=10, t=20, b=10),
+        xaxis=dict(color="white", gridcolor="rgba(255,255,255,0.15)"),
+        yaxis=dict(color="white")
     )
 
     st.plotly_chart(fig_loss, use_container_width=True)
