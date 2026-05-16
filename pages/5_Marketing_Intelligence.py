@@ -5,16 +5,17 @@ from pathlib import Path
 
 st.set_page_config(page_title="Evaluación de Campaña", layout="wide")
 
-# =========================
-# CARGA DINÁMICA DEL EXCEL
-# =========================
 BASE_DIR = Path(__file__).parent
 EXCEL_PATH = BASE_DIR / "RENDIMIENTO_ABRIL.xlsx"
 
 @st.cache_data(ttl=5)
 def cargar_excel(path):
-    df = pd.read_excel(path)
-    df.columns = df.columns.str.strip()
+    df = pd.read_excel(path, sheet_name=0)
+    df.columns = (
+        df.columns
+        .str.replace("\n", " ", regex=False)
+        .str.strip()
+    )
     return df
 
 if st.button("Actualizar datos desde Excel"):
@@ -29,15 +30,20 @@ def get_num(col, default=0):
         if pd.isna(value) or value == "":
             return default
         return float(value)
-    except:
+    except Exception:
         return default
+
+def safe_div(a, b):
+    return a / b if b else 0
+
+def clp(x):
+    return f"${x:,.0f}".replace(",", ".")
 
 campana = row.get("Campaña", "Campaña sin nombre")
 
 leads_meta = get_num("Leads Contactos Meta (Informe KONA Mkt)")
 leads_bold = get_num("Leads BoldKnight")
 contactos = get_num("Contactos")
-conversaciones = get_num("Conversaciones")
 agendamientos = get_num("Appointment Count")
 oportunidades = get_num("Oportunidades CRM arquimed")
 en_cierre = get_num("En Cierre")
@@ -45,18 +51,8 @@ ventas = get_num("Ventas")
 revenue = get_num("Revenue")
 inversion = get_num("Inversion")
 
-# Si hay campos vacíos, calculamos con lógica conservadora
-if conversaciones == 0:
-    conversaciones = agendamientos
-
 if oportunidades == 0:
     oportunidades = en_cierre + ventas
-
-# =========================
-# CÁLCULOS
-# =========================
-def safe_div(a, b):
-    return a / b if b else 0
 
 cpl = safe_div(inversion, contactos)
 cpa = safe_div(inversion, agendamientos)
@@ -65,19 +61,17 @@ cpv = safe_div(inversion, ventas)
 roas = safe_div(revenue, inversion)
 ticket = safe_div(revenue, ventas)
 
+conv_meta_bold = safe_div(leads_bold, leads_meta)
+conv_bold_contactos = safe_div(contactos, leads_bold)
 conv_contacto_agenda = safe_div(agendamientos, contactos)
 conv_agenda_opp = safe_div(oportunidades, agendamientos)
+conv_opp_cierre = safe_div(en_cierre, oportunidades)
 conv_opp_venta = safe_div(ventas, oportunidades)
 
-pipeline_potencial = oportunidades * ticket if ticket else oportunidades * 15500000
-pipeline_en_cierre = en_cierre * ticket if ticket else en_cierre * 15500000
+ticket_ref = ticket if ticket else 15_500_000
+pipeline_potencial = oportunidades * ticket_ref
+pipeline_en_cierre = en_cierre * ticket_ref
 
-def clp(x):
-    return f"${x:,.0f}".replace(",", ".")
-
-# =========================
-# CSS DARK EXECUTIVE
-# =========================
 st.markdown("""
 <style>
 .stApp {
@@ -97,10 +91,11 @@ h1, h2, h3 {
     border-radius: 18px;
     padding: 22px;
     box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+    min-height: 125px;
 }
 .metric-title {
     color: #94a3b8;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
 }
 .metric-value {
@@ -114,29 +109,19 @@ h1, h2, h3 {
     font-size: 13px;
     margin-top: 6px;
 }
-.big-number {
-    color: #22c55e;
-    font-weight: 800;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# HEADER
-# =========================
 st.title("Evaluación de Campaña")
 st.markdown(f"### Campaña: **{campana}**")
 st.markdown("Análisis integral de desempeño comercial, funnel, revenue e insights.")
 
-# =========================
-# KPI CARDS
-# =========================
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 cards = [
     ("Leads Meta", leads_meta, "Informe KONA Mkt"),
-    ("Leads BoldKnight", leads_bold, "CRM / chatbot"),
-    ("Contactos", contactos, "Base comercial"),
+    ("Leads BoldKnight", leads_bold, f"{conv_meta_bold:.1%} de Meta"),
+    ("Contactos", contactos, f"{conv_bold_contactos:.1%} de BoldKnight"),
     ("Agendamientos", agendamientos, f"{conv_contacto_agenda:.1%} de contactos"),
     ("En Cierre", en_cierre, "Pipeline activo"),
     ("Revenue", clp(revenue), "CLP generado"),
@@ -144,19 +129,17 @@ cards = [
 
 for col, (title, value, sub) in zip([c1, c2, c3, c4, c5, c6], cards):
     with col:
+        display_value = int(value) if isinstance(value, float) else value
         st.markdown(f"""
         <div class="card">
             <div class="metric-title">{title}</div>
-            <div class="metric-value">{int(value) if isinstance(value, float) else value}</div>
+            <div class="metric-value">{display_value}</div>
             <div class="metric-sub">{sub}</div>
         </div>
         """, unsafe_allow_html=True)
 
 st.markdown("")
 
-# =========================
-# FUNNEL / INDICADORES / REVENUE
-# =========================
 left, mid, right = st.columns([2.2, 1.2, 1.4])
 
 with left:
@@ -184,8 +167,13 @@ with left:
         ],
         textinfo="value+percent previous",
         marker={"color": [
-            "#2563eb", "#0ea5e9", "#22c55e",
-            "#8b5cf6", "#f59e0b", "#14b8a6", "#16a34a"
+            "#2563eb",
+            "#0ea5e9",
+            "#22c55e",
+            "#8b5cf6",
+            "#f59e0b",
+            "#14b8a6",
+            "#16a34a"
         ]}
     ))
 
@@ -241,9 +229,6 @@ with right:
 
 st.markdown("")
 
-# =========================
-# SEGUNDA FILA
-# =========================
 col_a, col_b, col_c = st.columns([1.2, 1.4, 1.4])
 
 with col_a:
@@ -251,8 +236,24 @@ with col_a:
     st.subheader("Distribución por Etapa")
 
     fig_donut = go.Figure(go.Pie(
-        labels=["Contactos", "Agendamientos", "Oportunidades", "En Cierre", "Ventas"],
-        values=[contactos, agendamientos, oportunidades, en_cierre, ventas],
+        labels=[
+            "Leads Meta",
+            "Leads BoldKnight",
+            "Contactos",
+            "Agendamientos",
+            "Oportunidades",
+            "En Cierre",
+            "Ventas"
+        ],
+        values=[
+            leads_meta,
+            leads_bold,
+            contactos,
+            agendamientos,
+            oportunidades,
+            en_cierre,
+            ventas
+        ],
         hole=0.55
     ))
 
@@ -268,12 +269,15 @@ with col_a:
 
 with col_b:
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("Pipeline Potencial")
+    st.subheader("Pipeline")
 
-    st.metric("Pipeline generado", clp(pipeline_potencial))
-    st.metric("Pipeline en cierre", clp(pipeline_en_cierre))
-    st.metric("Ventas cerradas", int(ventas))
-    st.metric("Revenue cerrado", clp(revenue))
+    p1, p2 = st.columns(2)
+    p3, p4 = st.columns(2)
+
+    p1.metric("Pipeline generado", clp(pipeline_potencial))
+    p2.metric("Pipeline en cierre", clp(pipeline_en_cierre))
+    p3.metric("Ventas cerradas", int(ventas))
+    p4.metric("Revenue cerrado", clp(revenue))
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -284,10 +288,10 @@ with col_c:
     ventas_proy_min = max(ventas, round(oportunidades * 0.30))
     ventas_proy_max = max(ventas_proy_min, round(oportunidades * 0.50))
 
-    rev_min = ventas_proy_min * ticket if ticket else ventas_proy_min * 15500000
-    rev_max = ventas_proy_max * ticket if ticket else ventas_proy_max * 15500000
+    rev_min = ventas_proy_min * ticket_ref
+    rev_max = ventas_proy_max * ticket_ref
 
-    st.metric("Ventas proyectadas", f"{ventas_proy_min} - {ventas_proy_max}")
+    st.metric("Ventas proyectadas", f"{int(ventas_proy_min)} - {int(ventas_proy_max)}")
     st.metric("Revenue proyectado", f"{clp(rev_min)} - {clp(rev_max)}")
     st.markdown("Proyección basada en oportunidades generadas y ticket promedio observado.")
 
@@ -295,9 +299,6 @@ with col_c:
 
 st.markdown("")
 
-# =========================
-# INSIGHTS
-# =========================
 col_i, col_l = st.columns([1.5, 1])
 
 with col_i:
@@ -308,6 +309,7 @@ with col_i:
 - La campaña generó **{int(leads_meta)} leads desde Meta** y **{int(leads_bold)} leads registrados en BoldKnight**.
 - Se consolidaron **{int(contactos)} contactos comerciales efectivos**.
 - Se lograron **{int(agendamientos)} agendamientos**, equivalentes a **{conv_contacto_agenda:.1%}** sobre contactos.
+- Se generaron **{int(oportunidades)} oportunidades comerciales reales**.
 - La campaña ya generó **{int(ventas)} venta cerrada** por **{clp(revenue)}**.
 - El ROAS actual es de **{roas:.1f}x**, con una inversión de **{clp(inversion)}**.
 - Existen **{int(en_cierre)} oportunidades en cierre**, por lo que el resultado final aún puede aumentar.
@@ -321,8 +323,8 @@ with col_l:
     st.subheader("Fricciones Comerciales")
 
     motivos = pd.DataFrame({
-        "Motivo": ["Falta de financiamiento", "Decisión pendiente", "Evaluación técnica"],
-        "Casos": [2, max(en_cierre, 1), max(oportunidades - en_cierre - ventas, 0)]
+        "Motivo": ["Falta de financiamiento", "En cierre", "Evaluación / seguimiento"],
+        "Casos": [2, int(en_cierre), max(int(oportunidades - en_cierre - ventas), 0)]
     })
 
     fig_loss = go.Figure(go.Bar(
@@ -344,3 +346,5 @@ with col_l:
 
     st.plotly_chart(fig_loss, use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
+
+st.caption("Los datos se leen desde RENDIMIENTO_ABRIL.xlsx. Para actualizar en Streamlit Cloud: editar Excel, guardar, git add, commit y push.")
